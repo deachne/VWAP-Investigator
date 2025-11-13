@@ -1,6 +1,10 @@
-# VWAP Trade Validator
+# VWAP Trading Platform
 
-A professional trading tool for validating trade setups using multi-timeframe VWAP (Volume-Weighted Average Price) analysis with 27% magnet level detection and AI-powered level scoring.
+A commodity trading intelligence platform for validating trade setups using multi-timeframe VWAP (Volume-Weighted Average Price) analysis, pattern detection, and AI-powered validation.
+
+**📋 Full Documentation:** See [`docs/PLATFORM-MERGE-PLAN.md`](docs/PLATFORM-MERGE-PLAN.md) for complete architecture and roadmap.
+
+**Status:** Prototype phase → Phase 1 restructure in progress
 
 ## Features
 
