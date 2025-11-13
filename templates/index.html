@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VWAP Trade Validator</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📊 VWAP Trade Validator</h1>
+            <p class="subtitle">Multi-Timeframe VWAP Analysis with 27% Magnet Detection</p>
+        </header>
+
+        <!-- Input Section -->
+        <section class="input-section">
+            <div class="input-group">
+                <label for="symbol">Stock Symbol</label>
+                <input type="text" id="symbol" placeholder="e.g., INTC" autocomplete="off">
+            </div>
+
+            <div class="input-group">
+                <label for="entryPrice">Entry Price (Optional)</label>
+                <input type="number" id="entryPrice" step="0.01" placeholder="Leave blank for current price">
+            </div>
+
+            <button id="analyzeBtn" class="btn-primary">Analyze</button>
+            <button id="clearBtn" class="btn-secondary">Clear</button>
+        </section>
+
+        <!-- Loading Indicator -->
+        <div id="loading" class="loading hidden">
+            <div class="spinner"></div>
+            <p>Fetching market data and calculating VWAPs...</p>
+        </div>
+
+        <!-- Error Display -->
+        <div id="error" class="error hidden"></div>
+
+        <!-- Results Section -->
+        <div id="results" class="results hidden">
+            <!-- Price Header -->
+            <div id="priceHeader" class="price-header"></div>
+
+            <!-- VWAP Levels -->
+            <section class="vwap-section">
+                <h2>VWAP Levels</h2>
+                <div id="vwapLevels" class="levels-grid"></div>
+            </section>
+
+            <!-- Top Levels (AI Ranked) -->
+            <section class="top-levels-section">
+                <h2>🎯 Top Levels (AI Ranked)</h2>
+                <div id="topLevels" class="top-levels-list"></div>
+            </section>
+
+            <!-- Patterns -->
+            <section class="patterns-section">
+                <h2>Pattern Detection</h2>
+                <div id="patterns" class="patterns-grid"></div>
+            </section>
+
+            <!-- Entry Analysis -->
+            <div id="entryAnalysis" class="entry-analysis hidden"></div>
+
+            <!-- Chart -->
+            <section class="chart-section">
+                <h2>Price Chart with VWAP Levels</h2>
+                <div class="chart-container">
+                    <canvas id="priceChart"></canvas>
+                </div>
+            </section>
+
+            <!-- Actions -->
+            <section class="actions-section">
+                <h3>Rate This Setup</h3>
+                <div class="rating-buttons">
+                    <button class="btn-good" onclick="rateTrade('good')">👍 Good Setup</button>
+                    <button class="btn-neutral" onclick="rateTrade('neutral')">😐 Neutral</button>
+                    <button class="btn-bad" onclick="rateTrade('bad')">👎 Bad Setup</button>
+                </div>
+
+                <div class="notes-section">
+                    <label for="tradeNotes">Notes:</label>
+                    <textarea id="tradeNotes" rows="3" placeholder="Add notes about this setup..."></textarea>
+                </div>
+
+                <button class="btn-primary" onclick="saveTrade()">Save to Database</button>
+            </section>
+
+            <!-- Statistics -->
+            <section class="stats-section">
+                <h3>Your Statistics</h3>
+                <div id="statistics"></div>
+                <button class="btn-secondary" onclick="exportTrades()">Export to CSV</button>
+            </section>
+        </div>
+    </div>
+
+    <footer>
+        <p>Built with Python + Flask | Powered by Alpha Vantage API</p>
+        <p class="disclaimer">For educational purposes only. Not financial advice.</p>
+    </footer>
+
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
