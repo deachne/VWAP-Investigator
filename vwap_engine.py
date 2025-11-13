@@ -3,6 +3,12 @@
 Proven VWAP Calculation Engine
 Handles: Yearly, Quarterly, Daily, Prior periods (ghost levels)
 Multi-timeframe VWAP with standard deviation bands and sigma distance calculations
+
+IMPORTANT METHODOLOGY:
+- Current VWAPs (active/updating): Use SIGMA distance (volatility-adjusted)
+- Prior VWAPs (static/completed): Use PERCENT distance (price-based only)
+
+See docs/VWAP-DISTANCE-METHODOLOGY.md for detailed explanation.
 """
 
 import pandas as pd
