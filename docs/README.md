@@ -4,9 +4,15 @@
 
 ### Architecture & Planning
 - **[Platform Merge Plan](PLATFORM-MERGE-PLAN.md)** - Complete architecture, roadmap, and integration strategy
+- **[Original Vision](ORIGINAL-VISION.md)** - Initial brainstorming and feature roadmap
+- **[BizzyForge Integration](BIZZYFORGE-INTEGRATION.md)** - Separation strategy and API integration
+
+### Core Methodology (READ THIS FIRST)
+- **[VWAP Distance Methodology](VWAP-DISTANCE-METHODOLOGY.md)** - Critical: Sigma vs Percent distance rules
 
 ### Getting Started
 - **[Installation Guide](../README.md)** - Quick setup and running the app
+- **[Run Engine Guide](RUN-ENGINE.md)** - How to run VWAP calculations (command line, Claude sessions, slash commands)
 - **Technical Requirements** - Python 3.8+, Alpha Vantage API key
 
 ### Core Features (Current)
