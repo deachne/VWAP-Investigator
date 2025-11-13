@@ -1,320 +1,368 @@
+#!/usr/bin/env python3
 """
-VWAP Calculation Engine
-Calculates Volume-Weighted Average Price across multiple timeframes
-with 27% magnet level detection.
+Proven VWAP Calculation Engine
+Handles: Yearly, Quarterly, Daily, Prior periods (ghost levels)
+Multi-timeframe VWAP with standard deviation bands and sigma distance calculations
 """
 
-from datetime import datetime, timedelta
-from typing import Dict, List, Tuple, Optional
 import pandas as pd
 import numpy as np
+from datetime import datetime, timedelta
+from typing import List, Dict, Optional
+import requests
 
 
 class VWAPEngine:
-    """Core VWAP calculation engine with multi-timeframe support."""
+    """Multi-timeframe VWAP calculation engine with standard deviation bands"""
 
-    # Magnet percentages for detection
-    MAGNET_LEVELS = [0.27, 1.27, 2.27, 3.27, 4.27]
+    def __init__(self, ticker: str = None, api_key: str = None):
+        self.ticker = ticker
+        self.api_key = api_key
+        # Key distance levels (magnet levels)
+        self.key_levels = [0.27, 0.5, 1.0, 1.27, 1.618, 2.0, 2.27, 2.618]
 
-    def __init__(self):
-        self.cache = {}
-
-    def calculate_vwap(self, df: pd.DataFrame, start_date: Optional[str] = None) -> float:
-        """
-        Calculate VWAP from price/volume data.
-
-        Args:
-            df: DataFrame with columns: timestamp, close, volume
-            start_date: Optional start date to filter from
-
-        Returns:
-            VWAP value as float
-        """
-        if df.empty:
-            return 0.0
-
-        if start_date:
-            df = df[df['timestamp'] >= start_date].copy()
-
-        if df.empty or df['volume'].sum() == 0:
-            return 0.0
-
-        df['vwap_contribution'] = df['close'] * df['volume']
-        total_volume = df['volume'].sum()
-        total_value = df['vwap_contribution'].sum()
-
-        return total_value / total_volume if total_volume > 0 else 0.0
-
-    def calculate_all_vwaps(self, df: pd.DataFrame, current_price: Optional[float] = None) -> Dict:
-        """
-        Calculate VWAP for all timeframes.
-
-        Args:
-            df: DataFrame with price/volume data
-            current_price: Optional current price for deviation calculation
-
-        Returns:
-            Dictionary with VWAP values for all timeframes
-        """
-        if df.empty:
-            return self._empty_result()
-
-        # Ensure timestamp column is datetime
-        df['timestamp'] = pd.to_datetime(df['timestamp'])
-        df = df.sort_values('timestamp')
-
-        latest_date = df['timestamp'].max()
-        current_price = current_price or df['close'].iloc[-1]
-
-        # Calculate timeframe start dates
-        daily_start = latest_date.replace(hour=9, minute=30, second=0, microsecond=0)
-        if latest_date.time() < datetime.strptime("09:30", "%H:%M").time():
-            daily_start -= timedelta(days=1)
-
-        three_month_start = latest_date - timedelta(days=90)
-        quarter_start = self._get_quarter_start(latest_date)
-        year_start = datetime(latest_date.year, 1, 1)
-
-        # Calculate VWAPs
-        vwaps = {
-            'yearly': self.calculate_vwap(df, year_start.strftime('%Y-%m-%d')),
-            'quarterly': self.calculate_vwap(df, quarter_start.strftime('%Y-%m-%d')),
-            'three_month': self.calculate_vwap(df, three_month_start.strftime('%Y-%m-%d')),
-            'daily': self.calculate_vwap(df, daily_start.strftime('%Y-%m-%d %H:%M:%S')),
+    def fetch_daily_data(self, outputsize='full') -> pd.DataFrame:
+        """Fetch daily OHLCV data from Alpha Vantage"""
+        url = f'https://www.alphavantage.co/query'
+        params = {
+            'function': 'TIME_SERIES_DAILY',
+            'symbol': self.ticker,
+            'outputsize': outputsize,
+            'apikey': self.api_key
         }
 
-        # Calculate deviations
-        deviations = {}
-        for tf, vwap in vwaps.items():
-            if vwap > 0:
-                dev = ((current_price - vwap) / vwap) * 100
-                deviations[tf] = {
-                    'deviation_pct': round(dev, 2),
-                    'deviation_dollars': round(current_price - vwap, 2),
-                    'is_above': current_price > vwap
-                }
+        response = requests.get(url, params=params)
+        data = response.json()
+
+        if 'Time Series (Daily)' not in data:
+            raise ValueError(f"Error fetching data: {data}")
+
+        time_series = data['Time Series (Daily)']
+        df = pd.DataFrame.from_dict(time_series, orient='index')
+        df.index = pd.to_datetime(df.index)
+        df = df.sort_index()
+
+        df.columns = ['open', 'high', 'low', 'close', 'volume']
+
+        for col in df.columns:
+            df[col] = pd.to_numeric(df[col])
+
+        return df
+
+    def calculate_vwap(self, df: pd.DataFrame, start_date: datetime,
+                       end_date: Optional[datetime] = None) -> Dict:
+        """Calculate VWAP for a specific period with std dev bands"""
+        mask = df.index >= start_date
+        if end_date:
+            mask &= (df.index <= end_date)
+
+        period_df = df[mask].copy()
+        if len(period_df) == 0:
+            return None
+
+        # Typical price (HLC/3)
+        period_df['typical_price'] = (period_df['high'] + period_df['low'] + period_df['close']) / 3
+
+        # VWAP = sum(TP * V) / sum(V)
+        period_df['tp_volume'] = period_df['typical_price'] * period_df['volume']
+        cumsum_tp_volume = period_df['tp_volume'].cumsum()
+        cumsum_volume = period_df['volume'].cumsum()
+        period_df['vwap'] = cumsum_tp_volume / cumsum_volume
+
+        # Std deviation
+        period_df['deviation'] = period_df['typical_price'] - period_df['vwap']
+        period_df['deviation_sq'] = period_df['deviation'] ** 2
+        period_df['deviation_sq_volume'] = period_df['deviation_sq'] * period_df['volume']
+        cumsum_dev_sq_volume = period_df['deviation_sq_volume'].cumsum()
+        period_df['std_dev'] = np.sqrt(cumsum_dev_sq_volume / cumsum_volume)
+
+        final_vwap = period_df['vwap'].iloc[-1]
+        final_std = period_df['std_dev'].iloc[-1]
+
+        # Deviation bands
+        bands = {}
+        for level in self.key_levels:
+            bands[f'+{level}σ'] = final_vwap + (level * final_std)
+            bands[f'-{level}σ'] = final_vwap - (level * final_std)
 
         return {
-            'vwaps': vwaps,
-            'current_price': current_price,
-            'deviations': deviations,
-            'timestamp': latest_date.isoformat()
+            'vwap': final_vwap,
+            'std_dev': final_std,
+            'bands': bands,
+            'start_date': start_date,
+            'end_date': end_date or df.index[-1],
+            'num_bars': len(period_df)
         }
 
-    def find_magnet_levels(self, vwap: float, current_price: float,
-                          price_range: Tuple[float, float] = None) -> List[Dict]:
-        """
-        Find 27% magnet levels near current price.
-
-        Args:
-            vwap: VWAP value
-            current_price: Current stock price
-            price_range: Optional (min, max) to filter results
-
-        Returns:
-            List of magnet level dictionaries
-        """
-        if vwap <= 0:
-            return []
-
-        magnets = []
-
-        for pct in self.MAGNET_LEVELS:
-            # Calculate levels above VWAP
-            level_above = vwap * (1 + pct)
-            magnets.append({
-                'level': round(level_above, 2),
-                'deviation_pct': round(pct * 100, 1),
-                'type': 'above',
-                'distance_from_price': abs(current_price - level_above),
-                'is_nearby': abs(current_price - level_above) / current_price < 0.05
+    def calculate_current_yearly_vwap(self, df: pd.DataFrame) -> Dict:
+        """Calculate current year's VWAP"""
+        current_year = datetime.now().year
+        start_date = datetime(current_year, 1, 1)
+        result = self.calculate_vwap(df, start_date)
+        if result:
+            result.update({
+                'period_type': 'yearly',
+                'year': current_year,
+                'label': f"{current_year} Yearly VWAP",
+                'is_current': True
             })
+        return result
 
-            # Calculate levels below VWAP (except for 0%)
-            if pct > 0:
-                level_below = vwap * (1 - pct)
-                magnets.append({
-                    'level': round(level_below, 2),
-                    'deviation_pct': round(-pct * 100, 1),
-                    'type': 'below',
-                    'distance_from_price': abs(current_price - level_below),
-                    'is_nearby': abs(current_price - level_below) / current_price < 0.05
+    def calculate_prior_yearly_vwaps(self, df: pd.DataFrame, num_years: int = 3) -> List[Dict]:
+        """Calculate prior years' VWAPs (ghost levels)"""
+        current_year = datetime.now().year
+        results = []
+
+        for year in range(current_year - num_years, current_year):
+            start_date = datetime(year, 1, 1)
+            end_date = datetime(year, 12, 31)
+            result = self.calculate_vwap(df, start_date, end_date)
+            if result:
+                result.update({
+                    'period_type': 'yearly',
+                    'year': year,
+                    'label': f"{year} Yearly VWAP (Prior)",
+                    'is_prior': True
                 })
+                results.append(result)
+        return results
 
-        # Filter by price range if provided
-        if price_range:
-            min_price, max_price = price_range
-            magnets = [m for m in magnets if min_price <= m['level'] <= max_price]
+    def calculate_current_quarterly_vwap(self, df: pd.DataFrame) -> Dict:
+        """Calculate current quarter's VWAP (true calendar quarter)"""
+        now = datetime.now()
+        quarter = (now.month - 1) // 3 + 1
+        quarter_start_month = (quarter - 1) * 3 + 1
+        start_date = datetime(now.year, quarter_start_month, 1)
 
-        # Sort by distance from current price
-        magnets.sort(key=lambda x: x['distance_from_price'])
+        result = self.calculate_vwap(df, start_date)
+        if result:
+            result.update({
+                'period_type': 'quarterly',
+                'year': now.year,
+                'quarter': quarter,
+                'label': f"Q{quarter} {now.year} VWAP",
+                'is_current': True
+            })
+        return result
 
-        return magnets
+    def calculate_prior_quarterly_vwaps(self, df: pd.DataFrame, num_quarters: int = 4) -> List[Dict]:
+        """Calculate prior quarters' VWAPs"""
+        now = datetime.now()
+        current_quarter = (now.month - 1) // 3 + 1
+        current_year = now.year
+        results = []
 
-    def find_all_magnet_levels(self, vwaps: Dict, current_price: float) -> Dict:
-        """
-        Find magnet levels for all VWAP timeframes.
+        for i in range(1, num_quarters + 1):
+            quarters_back = current_quarter - i
+            year = current_year + (quarters_back // 4)
+            quarter = quarters_back % 4
+            if quarter <= 0:
+                quarter += 4
+                year -= 1
 
-        Args:
-            vwaps: Dictionary of VWAP values by timeframe
-            current_price: Current stock price
+            quarter_starts = {1: 1, 2: 4, 3: 7, 4: 10}
+            start_month = quarter_starts[quarter]
+            start_date = datetime(year, start_month, 1)
 
-        Returns:
-            Dictionary of magnet levels by timeframe
-        """
-        all_magnets = {}
+            if quarter == 4:
+                end_date = datetime(year, 12, 31)
+            else:
+                end_date = datetime(year, start_month + 2, 30)
 
-        for timeframe, vwap in vwaps.items():
-            if vwap > 0:
-                magnets = self.find_magnet_levels(vwap, current_price)
-                # Only include nearby levels (within 10% of current price)
-                nearby = [m for m in magnets if m['distance_from_price'] / current_price < 0.10]
-                all_magnets[timeframe] = nearby[:5]  # Top 5 closest
+            result = self.calculate_vwap(df, start_date, end_date)
+            if result:
+                result.update({
+                    'period_type': 'quarterly',
+                    'year': year,
+                    'quarter': quarter,
+                    'label': f"Q{quarter} {year} VWAP (Prior)",
+                    'is_prior': True
+                })
+                results.append(result)
+        return results
 
-        return all_magnets
+    def calculate_daily_vwap(self, df: pd.DataFrame) -> Dict:
+        """Calculate today's VWAP (from market open)"""
+        today = datetime.now().replace(hour=9, minute=30, second=0, microsecond=0)
+        result = self.calculate_vwap(df, today)
+        if result:
+            result.update({
+                'period_type': 'daily',
+                'label': "Daily VWAP",
+                'is_current': True
+            })
+        return result
 
-    def _get_quarter_start(self, date: datetime) -> datetime:
-        """Get the start date of the current quarter."""
-        quarter = (date.month - 1) // 3
-        month = quarter * 3 + 1
-        return datetime(date.year, month, 1)
+    def calculate_distance_from_vwap(self, current_price: float, vwap_value: float,
+                                    std_dev: float) -> Dict:
+        """Calculate precise distance from VWAP in % and sigma"""
+        absolute_distance = current_price - vwap_value
+        percent_distance = (absolute_distance / vwap_value) * 100
+        sigma_distance = absolute_distance / std_dev if std_dev > 0 else 0
 
-    def _empty_result(self) -> Dict:
-        """Return empty result structure."""
+        # Find closest key level
+        closest_level = None
+        closest_distance = float('inf')
+        for level in self.key_levels:
+            for sign in [1, -1]:
+                level_sigma = sign * level
+                distance_to_level = abs(sigma_distance - level_sigma)
+                if distance_to_level < closest_distance:
+                    closest_distance = distance_to_level
+                    closest_level = level_sigma
+
         return {
-            'vwaps': {
-                'yearly': 0,
-                'quarterly': 0,
-                'three_month': 0,
-                'daily': 0
-            },
-            'current_price': 0,
-            'deviations': {},
+            'absolute_distance': absolute_distance,
+            'percent_distance': percent_distance,
+            'sigma_distance': sigma_distance,
+            'closest_level': closest_level,
+            'distance_to_closest_level': closest_distance,
+            'is_near_key_level': closest_distance < 0.05
+        }
+
+    def get_all_vwaps(self, current_price: Optional[float] = None) -> Dict:
+        """Calculate all VWAP types and distances"""
+        df = self.fetch_daily_data()
+
+        if current_price is None:
+            current_price = float(df['close'].iloc[-1])
+
+        vwaps = {
+            'current_yearly': self.calculate_current_yearly_vwap(df),
+            'prior_yearly': self.calculate_prior_yearly_vwaps(df, num_years=3),
+            'current_quarterly': self.calculate_current_quarterly_vwap(df),
+            'prior_quarterly': self.calculate_prior_quarterly_vwaps(df, num_quarters=4),
+            'daily': self.calculate_daily_vwap(df),
+        }
+
+        # Add distances
+        vwap_distances = {}
+        for vwap_type, vwap_data in vwaps.items():
+            if isinstance(vwap_data, list):
+                vwap_distances[vwap_type] = []
+                for vwap in vwap_data:
+                    if vwap:
+                        distance = self.calculate_distance_from_vwap(
+                            current_price, vwap['vwap'], vwap['std_dev']
+                        )
+                        vwap_distances[vwap_type].append({**vwap, 'distance': distance})
+            else:
+                if vwap_data:
+                    distance = self.calculate_distance_from_vwap(
+                        current_price, vwap_data['vwap'], vwap_data['std_dev']
+                    )
+                    vwap_distances[vwap_type] = {**vwap_data, 'distance': distance}
+
+        return {
+            'ticker': self.ticker,
+            'current_price': current_price,
+            'vwaps': vwap_distances,
             'timestamp': datetime.now().isoformat()
         }
 
 
+# Backwards compatibility with old API (for existing app.py integration)
 class VWAPAnalyzer:
-    """Higher-level VWAP analysis with pattern detection."""
+    """Wrapper for backwards compatibility with existing code"""
 
     def __init__(self, engine: VWAPEngine):
         self.engine = engine
 
     def analyze_price_action(self, df: pd.DataFrame, current_price: float) -> Dict:
         """
-        Comprehensive VWAP analysis including patterns and levels.
+        Comprehensive VWAP analysis - compatible with old interface
 
-        Args:
-            df: Historical price/volume data
-            current_price: Current stock price
-
-        Returns:
-            Complete analysis dictionary
+        Returns data structure matching old format for app.py integration
         """
-        # Calculate all VWAPs
-        vwap_data = self.engine.calculate_all_vwaps(df, current_price)
+        # Set engine properties if not set
+        if not self.engine.ticker:
+            self.engine.ticker = "UNKNOWN"
 
-        # Find magnet levels
-        magnets = self.engine.find_all_magnet_levels(vwap_data['vwaps'], current_price)
+        # Calculate all VWAPs using new engine
+        all_vwaps = self.engine.get_all_vwaps(current_price)
 
-        # Determine strongest level
-        strongest = self._find_strongest_level(vwap_data['vwaps'], magnets, current_price)
+        # Transform to old format expected by app.py
+        vwaps = {}
+        deviations = {}
 
-        # Support/Resistance analysis
-        sr_analysis = self._analyze_support_resistance(df, current_price, vwap_data['vwaps'])
+        # Current yearly
+        if all_vwaps['vwaps'].get('current_yearly'):
+            yearly = all_vwaps['vwaps']['current_yearly']
+            vwaps['yearly'] = float(yearly['vwap'])
+            deviations['yearly'] = {
+                'deviation_pct': float(yearly['distance']['percent_distance']),
+                'deviation_dollars': float(yearly['distance']['absolute_distance']),
+                'is_above': yearly['distance']['absolute_distance'] > 0,
+                'sigma': float(yearly['distance']['sigma_distance'])
+            }
 
-        return {
-            **vwap_data,
-            'magnet_levels': magnets,
-            'strongest_level': strongest,
-            'support_resistance': sr_analysis
-        }
+        # Current quarterly
+        if all_vwaps['vwaps'].get('current_quarterly'):
+            quarterly = all_vwaps['vwaps']['current_quarterly']
+            vwaps['quarterly'] = float(quarterly['vwap'])
+            deviations['quarterly'] = {
+                'deviation_pct': float(quarterly['distance']['percent_distance']),
+                'deviation_dollars': float(quarterly['distance']['absolute_distance']),
+                'is_above': quarterly['distance']['absolute_distance'] > 0,
+                'sigma': float(quarterly['distance']['sigma_distance'])
+            }
 
-    def _find_strongest_level(self, vwaps: Dict, magnets: Dict, current_price: float) -> Dict:
-        """Identify the strongest VWAP level near current price."""
-        candidates = []
-
-        # Add VWAP levels
-        for tf, vwap in vwaps.items():
-            if vwap > 0:
-                distance = abs(current_price - vwap)
-                if distance / current_price < 0.05:  # Within 5%
-                    candidates.append({
-                        'type': 'vwap',
-                        'timeframe': tf,
-                        'level': vwap,
-                        'distance': distance
-                    })
-
-        # Add magnet levels
-        for tf, magnet_list in magnets.items():
-            for magnet in magnet_list[:2]:  # Top 2 per timeframe
-                candidates.append({
-                    'type': 'magnet',
-                    'timeframe': tf,
-                    'level': magnet['level'],
-                    'distance': magnet['distance_from_price'],
-                    'deviation_pct': magnet['deviation_pct']
-                })
-
-        if not candidates:
-            return {}
-
-        # Sort by distance and return closest
-        candidates.sort(key=lambda x: x['distance'])
-        return candidates[0]
-
-    def _analyze_support_resistance(self, df: pd.DataFrame, current_price: float,
-                                    vwaps: Dict) -> Dict:
-        """Analyze support and resistance levels."""
-        if df.empty:
-            return {}
-
-        # Find recent highs and lows
-        recent_df = df.tail(20)
-        recent_high = recent_df['high'].max()
-        recent_low = recent_df['low'].min()
-
-        # Determine if VWAPs are acting as support or resistance
-        sr_levels = []
-        for tf, vwap in vwaps.items():
-            if vwap > 0:
-                if current_price > vwap:
-                    sr_levels.append({
-                        'level': vwap,
-                        'type': 'support',
-                        'timeframe': tf
-                    })
-                else:
-                    sr_levels.append({
-                        'level': vwap,
-                        'type': 'resistance',
-                        'timeframe': tf
-                    })
+        # Daily
+        if all_vwaps['vwaps'].get('daily'):
+            daily = all_vwaps['vwaps']['daily']
+            vwaps['daily'] = float(daily['vwap'])
+            deviations['daily'] = {
+                'deviation_pct': float(daily['distance']['percent_distance']),
+                'deviation_dollars': float(daily['distance']['absolute_distance']),
+                'is_above': daily['distance']['absolute_distance'] > 0,
+                'sigma': float(daily['distance']['sigma_distance'])
+            }
 
         return {
-            'levels': sr_levels,
-            'recent_high': recent_high,
-            'recent_low': recent_low,
-            'range_pct': ((recent_high - recent_low) / recent_low) * 100
+            'vwaps': vwaps,
+            'current_price': float(current_price),
+            'deviations': deviations,
+            'timestamp': all_vwaps['timestamp'],
+            'magnet_levels': {},  # Will be populated by pattern detector
+            'support_resistance': {},
+            'all_vwaps_data': all_vwaps  # Full data including prior periods
         }
 
 
-def calculate_vwap_simple(prices: List[float], volumes: List[int]) -> float:
-    """
-    Simple VWAP calculation from lists.
+# Test
+if __name__ == "__main__":
+    import os
+    from dotenv import load_dotenv
 
-    Args:
-        prices: List of prices
-        volumes: List of volumes
+    load_dotenv()
+    api_key = os.getenv('ALPHA_VANTAGE_API_KEY')
 
-    Returns:
-        VWAP value
-    """
-    if len(prices) != len(volumes) or not prices:
-        return 0.0
+    engine = VWAPEngine('INTC', api_key)
+    result = engine.get_all_vwaps()
 
-    total_value = sum(p * v for p, v in zip(prices, volumes))
-    total_volume = sum(volumes)
+    print(f"\n{'='*60}")
+    print(f"VWAP Analysis for {result['ticker']}")
+    print(f"Current Price: ${result['current_price']:.2f}")
+    print(f"{'='*60}\n")
 
-    return total_value / total_volume if total_volume > 0 else 0.0
+    # Current yearly
+    yearly = result['vwaps']['current_yearly']
+    print(f"{yearly['label']}")
+    print(f"  VWAP: ${yearly['vwap']:.2f}")
+    print(f"  Std Dev: ${yearly['std_dev']:.2f}")
+    print(f"  Distance: {yearly['distance']['percent_distance']:.2f}%")
+    print(f"  Sigma: {yearly['distance']['sigma_distance']:.2f}σ")
+    print(f"  Closest Level: {yearly['distance']['closest_level']}σ\n")
+
+    # Current quarterly
+    quarterly = result['vwaps']['current_quarterly']
+    print(f"{quarterly['label']}")
+    print(f"  VWAP: ${quarterly['vwap']:.2f}")
+    print(f"  Std Dev: ${quarterly['std_dev']:.2f}")
+    print(f"  Distance: {quarterly['distance']['percent_distance']:.2f}%")
+    print(f"  Sigma: {quarterly['distance']['sigma_distance']:.2f}σ\n")
+
+    # Prior yearly (ghost levels)
+    print("Prior Yearly VWAPs (Ghost Levels):")
+    for prior in result['vwaps']['prior_yearly']:
+        print(f"  {prior['label']}: ${prior['vwap']:.2f}")
