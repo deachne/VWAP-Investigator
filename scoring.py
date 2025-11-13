@@ -56,26 +56,30 @@ class LevelScorer:
 
         # Pattern score
         pattern_score = 0
-        if patterns:
+        if patterns and isinstance(patterns, dict):
             # Check if level is in unbroken priors
-            unbroken = any(p['level'] == level.get('level')
-                          for p in patterns.get('unbroken_priors', []))
-            if unbroken:
-                pattern_score += 30
+            unbroken_priors = patterns.get('unbroken_priors', [])
+            if unbroken_priors and isinstance(unbroken_priors, list):
+                unbroken = any(p.get('level') == level.get('level') for p in unbroken_priors)
+                if unbroken:
+                    pattern_score += 30
 
             # Check for confluences
-            in_confluence = any(level.get('level') in
-                              [c['level'] for c in patterns.get('confluences', [])])
-            if in_confluence:
-                pattern_score += 25
+            confluences = patterns.get('confluences', [])
+            if confluences and isinstance(confluences, list):
+                confluence_levels = [c.get('level') for c in confluences if isinstance(c, dict)]
+                if level.get('level') in confluence_levels:
+                    pattern_score += 25
 
             # Check for recent reclaims
-            recent_reclaim = any(
-                p['level'] == level.get('level') and p['days_ago'] <= 3
-                for p in patterns.get('reclaims', [])
-            )
-            if recent_reclaim:
-                pattern_score += 20
+            reclaims = patterns.get('reclaims', [])
+            if reclaims and isinstance(reclaims, list):
+                recent_reclaim = any(
+                    p.get('level') == level.get('level') and p.get('days_ago', 999) <= 3
+                    for p in reclaims if isinstance(p, dict)
+                )
+                if recent_reclaim:
+                    pattern_score += 20
 
         scores['pattern'] = min(pattern_score, 100)
 

@@ -6,12 +6,30 @@ from flask import Flask, render_template, request, jsonify
 from flask_cors import CORS
 from dotenv import load_dotenv
 import os
+import numpy as np
 
 from vwap_engine import VWAPEngine, VWAPAnalyzer
 from alpha_vantage import AlphaVantageClient
 from pattern_detector import PatternDetector
 from scoring import LevelScorer
 from database import TradeDatabase
+
+
+def convert_numpy_types(obj):
+    """Convert numpy types to native Python types for JSON serialization."""
+    if isinstance(obj, dict):
+        return {key: convert_numpy_types(value) for key, value in obj.items()}
+    elif isinstance(obj, list):
+        return [convert_numpy_types(item) for item in obj]
+    elif isinstance(obj, (np.integer, np.int64, np.int32)):
+        return int(obj)
+    elif isinstance(obj, (np.floating, np.float64, np.float32)):
+        return float(obj)
+    elif isinstance(obj, (np.bool_, bool)):
+        return bool(obj)
+    elif isinstance(obj, np.ndarray):
+        return obj.tolist()
+    return obj
 
 # Load environment variables
 load_dotenv()
@@ -119,9 +137,18 @@ def analyze():
             'timestamp': analysis.get('timestamp')
         }
 
+        # Convert numpy types to native Python types for JSON serialization
+        response = convert_numpy_types(response)
+
         return jsonify(response)
 
     except Exception as e:
+        import traceback
+        print("\n" + "="*50)
+        print("ERROR IN ANALYZE ENDPOINT:")
+        print("="*50)
+        traceback.print_exc()
+        print("="*50 + "\n")
         return jsonify({'error': str(e)}), 500
 
 
@@ -243,7 +270,7 @@ if __name__ == '__main__':
     from threading import Timer
 
     def open_browser():
-        webbrowser.open('http://localhost:5000')
+        webbrowser.open('http://localhost:5001')
 
     # Open browser after 1 second
     Timer(1, open_browser).start()
@@ -252,7 +279,7 @@ if __name__ == '__main__':
     print("\n" + "="*50)
     print("VWAP Trade Validator Starting...")
     print("="*50)
-    print("\nServer running at: http://localhost:5000")
+    print("\nServer running at: http://localhost:5001")
     print("Browser will open automatically...\n")
 
-    app.run(debug=True, port=5000, use_reloader=False)
+    app.run(debug=True, host='0.0.0.0', port=5001, use_reloader=False)

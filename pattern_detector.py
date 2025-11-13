@@ -226,10 +226,10 @@ class PatternDetector:
 
             # Check for price crossing VWAP
             recent_df['above_vwap'] = recent_df['close'] > vwap
-            recent_df['crosses'] = recent_df['above_vwap'].diff()
+            recent_df['crosses'] = recent_df['above_vwap'].astype(int).diff()
 
-            # Find crossover points
-            bullish_crosses = recent_df[recent_df['crosses'] == True]
+            # Find crossover points (diff returns 1 for bullish cross, -1 for bearish)
+            bullish_crosses = recent_df[recent_df['crosses'] == 1]
             bearish_crosses = recent_df[recent_df['crosses'] == -1]
 
             for _, row in bullish_crosses.iterrows():
