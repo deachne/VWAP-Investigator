@@ -161,7 +161,7 @@ class PatternValidator:
 
     def _analyze_touch_outcome(self, df: pd.DataFrame, touch_date,
                                level: float, pattern_type: str) -> Optional[Dict]:
-        """Analyze what happened after touching a level"""
+        """Analyze what happened after touching a level - tracks BOTH rejections and break-throughs"""
 
         touch_bar = df.loc[touch_date]
         future_bars = df[df.index > touch_date].head(20)  # Next 20 bars
@@ -169,12 +169,18 @@ class PatternValidator:
         if future_bars.empty:
             return None
 
-        # Determine if rejected (closed below for resistance touch)
-        touched_from_below = touch_bar['close'] < level
+        # Determine direction of touch
+        touched_from_below = touch_bar['open'] < level or touch_bar['low'] < level
+        touched_level = touch_bar['high'] >= level and touch_bar['low'] <= level
 
+        if not touched_level:
+            return None  # Didn't actually touch
+
+        # Check if rejected or broke through
         if touched_from_below:
-            # Testing resistance
-            rejected = touch_bar['close'] < level and touch_bar['high'] >= level
+            # Testing as resistance
+            rejected = touch_bar['close'] < level
+            broke_through = touch_bar['close'] > level
 
             if rejected:
                 # Find how far it fell
@@ -186,10 +192,69 @@ class PatternValidator:
                 return {
                     'type': 'rejection',
                     'rejected': True,
+                    'broke_through': False,
                     'date': touch_date,
                     'touch_price': touch_bar['high'],
                     'close': touch_bar['close'],
                     'reversal_size_pct': reversal_size,
+                    'bars_to_low': bars_count,
+                    'lowest_price': lowest
+                }
+            elif broke_through:
+                # Broke resistance, find how high it went
+                highest = future_bars['high'].max()
+                bars_to_high = future_bars['high'].idxmax()
+                bars_count = len(df.loc[touch_date:bars_to_high])
+                continuation_size = ((highest - level) / level) * 100
+
+                return {
+                    'type': 'break_through',
+                    'rejected': False,
+                    'broke_through': True,
+                    'date': touch_date,
+                    'touch_price': touch_bar['low'],
+                    'close': touch_bar['close'],
+                    'continuation_size_pct': continuation_size,
+                    'bars_to_high': bars_count,
+                    'highest_price': highest
+                }
+
+        else:
+            # Testing as support (touched from above)
+            rejected = touch_bar['close'] > level  # Bounced
+            broke_down = touch_bar['close'] < level  # Failed support
+
+            if rejected:  # Support held
+                highest = future_bars['high'].max()
+                bars_to_high = future_bars['high'].idxmax()
+                bars_count = len(df.loc[touch_date:bars_to_high])
+                bounce_size = ((highest - level) / level) * 100
+
+                return {
+                    'type': 'support_hold',
+                    'rejected': True,
+                    'broke_through': False,
+                    'date': touch_date,
+                    'touch_price': touch_bar['low'],
+                    'close': touch_bar['close'],
+                    'bounce_size_pct': bounce_size,
+                    'bars_to_high': bars_count,
+                    'highest_price': highest
+                }
+            elif broke_down:
+                lowest = future_bars['low'].min()
+                bars_to_low = future_bars['low'].idxmin()
+                bars_count = len(df.loc[touch_date:bars_to_low])
+                breakdown_size = ((lowest - level) / level) * 100
+
+                return {
+                    'type': 'support_break',
+                    'rejected': False,
+                    'broke_through': True,
+                    'date': touch_date,
+                    'touch_price': touch_bar['high'],
+                    'close': touch_bar['close'],
+                    'breakdown_size_pct': breakdown_size,
                     'bars_to_low': bars_count,
                     'lowest_price': lowest
                 }
@@ -368,46 +433,60 @@ class PatternValidator:
         return quarters
 
     def _aggregate_rejection_results(self, results: List[Dict]) -> Dict:
-        """Aggregate rejection pattern results"""
+        """Aggregate rejection pattern results - counts BOTH rejections and break-throughs"""
 
         if not results:
             return {'error': 'No instances found'}
 
         total = len(results)
-        rejections = [r for r in results if r.get('rejected')]
+        rejections = [r for r in results if r.get('rejected') == True]
+        break_throughs = [r for r in results if r.get('broke_through') == True]
 
         return {
             'pattern': 'Prior Quarterly VWAP Rejection',
             'total_instances': total,
             'rejections': len(rejections),
-            'rejection_rate': len(rejections) / total * 100,
-            'avg_reversal_size': np.mean([r['reversal_size_pct'] for r in rejections]),
-            'avg_bars_to_low': np.mean([r['bars_to_low'] for r in rejections]),
+            'rejection_rate': len(rejections) / total * 100 if total > 0 else 0,
+            'break_throughs': len(break_throughs),
+            'break_through_rate': len(break_throughs) / total * 100 if total > 0 else 0,
+            'avg_reversal_size': np.mean([r.get('reversal_size_pct', 0) for r in rejections]) if rejections else 0,
+            'avg_bars_to_low': np.mean([r.get('bars_to_low', 0) for r in rejections]) if rejections else 0,
+            'avg_continuation_size': np.mean([r.get('continuation_size_pct', 0) for r in break_throughs]) if break_throughs else 0,
             'instances_by_ticker': self._group_by_ticker(results),
-            'instances_by_year': self._group_by_year(results)
+            'instances_by_year': self._group_by_year(results),
+            'all_instances': results  # Keep raw data for analysis
         }
 
     def _aggregate_sigma_results(self, results: List[Dict]) -> Dict:
-        """Aggregate sigma support pattern results"""
+        """Aggregate sigma support pattern results - counts BOTH bounces and failures"""
 
         if not results:
             return {'error': 'No instances found'}
 
         total = len(results)
-        bounces = [r for r in results if r.get('bounced')]
+        bounces = [r for r in results if r.get('bounced') or r.get('type') == 'support_hold']
+        failures = [r for r in results if r.get('type') == 'support_break']
+
+        # Check for reached_vwap in bounces
         reached_vwap = [r for r in bounces if r.get('reached_vwap')]
 
+        sigma_level = results[0].get('sigma_level', -0.27) if results else -0.27
+
         return {
-            'pattern': f'{results[0]["sigma_level"]}σ Yearly VWAP Support',
+            'pattern': f'{sigma_level}σ Yearly VWAP Support',
             'total_instances': total,
             'bounces': len(bounces),
-            'bounce_rate': len(bounces) / total * 100,
+            'bounce_rate': len(bounces) / total * 100 if total > 0 else 0,
+            'failures': len(failures),
+            'failure_rate': len(failures) / total * 100 if total > 0 else 0,
             'reached_vwap': len(reached_vwap),
             'vwap_reach_rate': len(reached_vwap) / len(bounces) * 100 if bounces else 0,
-            'avg_bounce_size': np.mean([r['bounce_size_pct'] for r in bounces]),
-            'avg_bars_to_high': np.mean([r['bars_to_high'] for r in bounces]),
+            'avg_bounce_size': np.mean([r.get('bounce_size_pct', 0) for r in bounces]) if bounces else 0,
+            'avg_bars_to_high': np.mean([r.get('bars_to_high', 0) for r in bounces]) if bounces else 0,
+            'avg_breakdown_size': np.mean([abs(r.get('breakdown_size_pct', 0)) for r in failures]) if failures else 0,
             'instances_by_ticker': self._group_by_ticker(results),
-            'instances_by_sector': self._group_by_sector(results)
+            'instances_by_sector': self._group_by_sector(results),
+            'all_instances': results  # Keep raw data
         }
 
     def _group_by_ticker(self, results: List[Dict]) -> Dict:
@@ -458,15 +537,23 @@ class PatternValidator:
         print(f"Total Instances Found: {results['total_instances']}")
 
         if 'rejections' in results:
-            print(f"Rejections: {results['rejections']} ({results['rejection_rate']:.1f}%)")
-            print(f"Avg Reversal: {results['avg_reversal_size']:.2f}%")
-            print(f"Avg Bars to Low: {results['avg_bars_to_low']:.1f}")
+            print(f"\nRejections: {results['rejections']} ({results['rejection_rate']:.1f}%)")
+            print(f"Break-throughs: {results['break_throughs']} ({results['break_through_rate']:.1f}%)")
+            if results['rejections'] > 0:
+                print(f"  Avg Reversal: {results['avg_reversal_size']:.2f}%")
+                print(f"  Avg Bars to Low: {results['avg_bars_to_low']:.1f}")
+            if results['break_throughs'] > 0:
+                print(f"  Avg Continuation: {results['avg_continuation_size']:.2f}%")
 
         if 'bounces' in results:
-            print(f"Bounces: {results['bounces']} ({results['bounce_rate']:.1f}%)")
-            print(f"Reached VWAP: {results['reached_vwap']} ({results['vwap_reach_rate']:.1f}%)")
-            print(f"Avg Bounce: {results['avg_bounce_size']:.2f}%")
-            print(f"Avg Bars to High: {results['avg_bars_to_high']:.1f}")
+            print(f"\nBounces: {results['bounces']} ({results['bounce_rate']:.1f}%)")
+            print(f"Failures: {results['failures']} ({results['failure_rate']:.1f}%)")
+            if results['bounces'] > 0:
+                print(f"  Reached VWAP: {results['reached_vwap']} ({results['vwap_reach_rate']:.1f}%)")
+                print(f"  Avg Bounce: {results['avg_bounce_size']:.2f}%")
+                print(f"  Avg Bars to High: {results['avg_bars_to_high']:.1f}")
+            if results['failures'] > 0:
+                print(f"  Avg Breakdown: {results['avg_breakdown_size']:.2f}%")
 
         print(f"\nBy Ticker:")
         for ticker, count in sorted(results['instances_by_ticker'].items(),
