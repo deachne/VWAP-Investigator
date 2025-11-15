@@ -9,11 +9,20 @@
 
 ### Core Methodology (READ THIS FIRST)
 - **[VWAP Distance Methodology](VWAP-DISTANCE-METHODOLOGY.md)** - Critical: Sigma vs Percent distance rules
+- **[Daily VWAP System](DAILY-VWAP-SYSTEM.md)** - How daily VWAPs differ from higher timeframes
+- **[AI Prompt Requirements](AI-PROMPT-REQUIREMENTS.md)** - System prompt for pattern discovery AI
+
+### Platform Vision
+- **[Discovery-Focused Platform](../platform-vision-discovery.html)** - Interactive visualization (RECOMMENDED)
+- **[Validation-Focused Platform](../platform-vision.html)** - Original validation approach
 
 ### Getting Started
 - **[Installation Guide](../README.md)** - Quick setup and running the app
 - **[Run Engine Guide](RUN-ENGINE.md)** - How to run VWAP calculations (command line, Claude sessions, slash commands)
 - **Technical Requirements** - Python 3.8+, Alpha Vantage API key
+
+### Testing & Validation
+- **[Testing Results](TESTING-RESULTS.md)** - Historical pattern validation results and findings
 
 ### Core Features (Current)
 - Multi-timeframe VWAP calculations (Yearly, Quarterly, 3-Month, Daily)
