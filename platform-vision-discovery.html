@@ -1,0 +1,982 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pattern Discovery Platform - Your Edge, Quantified</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #0d1117;
+            color: #c9d1d9;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            text-align: center;
+            padding: 40px 20px;
+            background: linear-gradient(135deg, #d29922 0%, #8957e5 100%);
+            border-radius: 12px;
+            margin-bottom: 40px;
+        }
+
+        header h1 {
+            font-size: 3rem;
+            margin-bottom: 10px;
+        }
+
+        header p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            overflow-x: auto;
+            padding: 10px 0;
+            flex-wrap: wrap;
+        }
+
+        .tab {
+            padding: 15px 30px;
+            background: #161b22;
+            border: 2px solid #30363d;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            white-space: nowrap;
+            font-size: 1rem;
+            font-weight: 600;
+        }
+
+        .tab:hover {
+            border-color: #d29922;
+            background: #21262d;
+        }
+
+        .tab.active {
+            background: #d29922;
+            border-color: #d29922;
+            color: white;
+        }
+
+        .tab-content {
+            display: none;
+            animation: fadeIn 0.3s;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .card {
+            background: #161b22;
+            border: 2px solid #30363d;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 30px;
+        }
+
+        .card.highlight {
+            border-color: #d29922;
+        }
+
+        .workflow {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin: 30px 0;
+        }
+
+        .workflow-step {
+            background: #21262d;
+            padding: 25px;
+            border-radius: 8px;
+            border-top: 4px solid #d29922;
+            position: relative;
+        }
+
+        .workflow-step .number {
+            position: absolute;
+            top: -15px;
+            left: 20px;
+            width: 40px;
+            height: 40px;
+            background: #d29922;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: white;
+        }
+
+        .workflow-step h3 {
+            margin: 15px 0 10px;
+            color: #d29922;
+        }
+
+        .mockup {
+            background: #0d1117;
+            border: 2px solid #30363d;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+
+        .chart-mockup {
+            background: #000;
+            border-radius: 8px;
+            padding: 20px;
+            min-height: 400px;
+            position: relative;
+            background: linear-gradient(180deg, rgba(13, 17, 23, 0.5) 0%, rgba(33, 38, 45, 0.3) 100%),
+                        repeating-linear-gradient(90deg, #1f6feb 0px, #1f6feb 2px, transparent 2px, transparent 100px);
+        }
+
+        .annotation-marker {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            background: #d29922;
+            border-radius: 50%;
+            border: 3px solid white;
+            cursor: pointer;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.2); opacity: 0.8; }
+        }
+
+        .ai-panel {
+            background: #161b22;
+            border: 2px solid #d29922;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+
+        .code-block {
+            background: #0d1117;
+            padding: 15px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            margin: 15px 0;
+            border-left: 4px solid #238636;
+        }
+
+        .stat-result {
+            background: #21262d;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 15px 0;
+        }
+
+        .success {
+            color: #238636;
+        }
+
+        .warning {
+            color: #d29922;
+        }
+
+        .info {
+            color: #58a6ff;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #30363d;
+        }
+
+        th {
+            background: #21262d;
+            font-weight: 600;
+        }
+
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+
+        .feature {
+            background: #21262d;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #1f6feb;
+        }
+
+        .feature h3 {
+            margin-bottom: 10px;
+            color: #58a6ff;
+        }
+
+        button {
+            padding: 12px 24px;
+            background: #d29922;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        button:hover {
+            background: #b87f1a;
+            transform: translateY(-2px);
+        }
+
+        button.secondary {
+            background: #1f6feb;
+        }
+
+        button.secondary:hover {
+            background: #1a5ac7;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔍 Pattern Discovery Platform</h1>
+            <p>You Find The Edge. AI Proves It Works.</p>
+        </header>
+
+        <div class="tabs">
+            <div class="tab active" onclick="showTab(0)">The Concept</div>
+            <div class="tab" onclick="showTab(1)">Discovery Workflow</div>
+            <div class="tab" onclick="showTab(2)">Chart Interface</div>
+            <div class="tab" onclick="showTab(3)">AI Analysis</div>
+            <div class="tab" onclick="showTab(4)">Pattern Library</div>
+            <div class="tab" onclick="showTab(5)">Scanner Integration</div>
+        </div>
+
+        <!-- Tab 0: The Concept -->
+        <div class="tab-content active">
+            <div class="card highlight">
+                <h2 style="margin-bottom: 20px;">The Core Idea: Reverse Engineering Your Edge</h2>
+
+                <p style="font-size: 1.2rem; margin-bottom: 20px;">
+                    After 3 years of watching VWAP levels, you've developed pattern recognition that can't be taught.
+                    This platform captures YOUR observations and quantifies them automatically.
+                </p>
+
+                <div class="workflow">
+                    <div class="workflow-step">
+                        <div class="number">1</div>
+                        <h3>You Observe</h3>
+                        <p>"Something interesting is happening at this exact spot on the chart"</p>
+                    </div>
+
+                    <div class="workflow-step">
+                        <div class="number">2</div>
+                        <h3>You Mark It</h3>
+                        <p>Click/annotate the chart, add quick note about what you see</p>
+                    </div>
+
+                    <div class="workflow-step">
+                        <div class="number">3</div>
+                        <h3>AI Captures</h3>
+                        <p>Analyzes exact VWAP configuration, time, volume, price action at that moment</p>
+                    </div>
+
+                    <div class="workflow-step">
+                        <div class="number">4</div>
+                        <h3>AI Validates</h3>
+                        <p>Searches history for similar setups, returns win rate and statistics</p>
+                    </div>
+
+                    <div class="workflow-step">
+                        <div class="number">5</div>
+                        <h3>You Decide</h3>
+                        <p>Trade it (if validated) or discard it (if doesn't work)</p>
+                    </div>
+
+                    <div class="workflow-step">
+                        <div class="number">6</div>
+                        <h3>Library Grows</h3>
+                        <p>Validated patterns saved, scanner finds them automatically</p>
+                    </div>
+                </div>
+
+                <div style="background: #21262d; padding: 25px; border-radius: 8px; margin-top: 30px; border-left: 4px solid #238636;">
+                    <h3 style="color: #238636; margin-bottom: 15px;">✅ Why This Works Better:</h3>
+                    <ul style="margin-left: 30px;">
+                        <li style="margin: 10px 0;"><strong>You have the pattern recognition</strong> - 3 years of observation can't be programmed</li>
+                        <li style="margin: 10px 0;"><strong>AI has the computational power</strong> - can scan 10,000 stocks in minutes</li>
+                        <li style="margin: 10px 0;"><strong>Infinite patterns possible</strong> - confluence of yearly + quarterly + daily + Fib + volume + time = millions of combinations</li>
+                        <li style="margin: 10px 0;"><strong>Your library is unique</strong> - no one else has YOUR specific patterns</li>
+                        <li style="margin: 10px 0;"><strong>Constantly evolving</strong> - find new patterns as markets change</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Examples of Patterns YOU Discovered:</h2>
+
+                <table>
+                    <tr>
+                        <th>Pattern Name</th>
+                        <th>Your Observation</th>
+                        <th>AI Quantified As</th>
+                        <th>Validated</th>
+                    </tr>
+                    <tr>
+                        <td><strong>DIS Flush Support</strong></td>
+                        <td>"When price gaps down hard, it stops at a specific level"</td>
+                        <td>-0.27σ from yearly VWAP</td>
+                        <td><span class="success">✅ 100% (967 instances)</span></td>
+                    </tr>
+                    <tr>
+                        <td><strong>DELL Top Formation</strong></td>
+                        <td>"Swing highs keep hitting same resistance zone"</td>
+                        <td>+2.27σ or +2.618σ from yearly/quarterly</td>
+                        <td><span class="success">✅ 4/4 swing highs</span></td>
+                    </tr>
+                    <tr>
+                        <td><strong>AAPL Premarket Read</strong></td>
+                        <td>"Price moves in steps from premarket range"</td>
+                        <td>Fib 61.8% + prior daily +1σ + current daily VWAP confluence</td>
+                        <td><span class="warning">⏳ Testing...</span></td>
+                    </tr>
+                    <tr>
+                        <td><strong>FXC Oscillation</strong></td>
+                        <td>"Bounces between two bands reliably"</td>
+                        <td>±0.27σ quarterly VWAP envelope</td>
+                        <td><span class="warning">⏳ Testing...</span></td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+        <!-- Tab 1: Discovery Workflow -->
+        <div class="tab-content">
+            <div class="card">
+                <h2>The Discovery Workflow (Step-by-Step)</h2>
+
+                <div style="margin: 30px 0;">
+                    <div style="background: #21262d; padding: 25px; border-radius: 8px; margin-bottom: 20px;">
+                        <h3 style="color: #d29922; margin-bottom: 15px;">Step 1: Load Chart with Full Indicators</h3>
+
+                        <div class="code-block">
+You enter: <strong>AAPL</strong>
+
+Chart loads with ALL levels visible:
+├── 2025 Yearly VWAP (orange line)
+│   ├── +2.618σ, +2.27σ, +2.0σ, +1.618σ, +1.27σ, +1.0σ, +0.5σ, +0.27σ
+│   └── -0.27σ, -0.5σ, -1.0σ, -1.27σ, -1.618σ, -2.0σ, -2.27σ, -2.618σ
+├── Q4 2025 VWAP (yellow line + bands)
+├── Prior Quarterly VWAPs (Q3, Q2, Q1 - dotted lines)
+├── Prior Yearly VWAPs (2024, 2023, 2022 - dashed lines)
+├── Daily VWAP (red line + bands)
+├── Prior Daily VWAPs (last 5 days with bands)
+└── Premarket Fib Grid (if applicable)
+
+<span class="info">Result:</span> Full VWAP constellation visible, all levels calculated
+                        </div>
+
+                        <p style="margin-top: 15px; color: #8b949e;">
+                            Unlike TradingView where you manually add each indicator, this loads EVERYTHING automatically based on your engine.
+                        </p>
+                    </div>
+
+                    <div style="background: #21262d; padding: 25px; border-radius: 8px; margin-bottom: 20px;">
+                        <h3 style="color: #d29922; margin-bottom: 15px;">Step 2: You Spot Something Interesting</h3>
+
+                        <div class="chart-mockup" style="position: relative; height: 300px; background: #000;">
+                            <div style="position: absolute; bottom: 40%; left: 50%; transform: translate(-50%, 50%);">
+                                <div class="annotation-marker"></div>
+                                <div style="position: absolute; top: 40px; left: -100px; background: #d29922; padding: 10px 15px; border-radius: 6px; white-space: nowrap; color: white; font-weight: 600;">
+                                    ← You click here!
+                                </div>
+                            </div>
+                            <div style="position: absolute; bottom: 10px; left: 10px; color: #8b949e; font-size: 0.85rem;">
+                                "Price keeps bouncing here - let me mark this"
+                            </div>
+                        </div>
+
+                        <p style="margin-top: 15px;">
+                            <strong>Your observation:</strong> "This looks like a pattern - price tested this level 3 times and bounced each time"
+                        </p>
+                    </div>
+
+                    <div style="background: #21262d; padding: 25px; border-radius: 8px; margin-bottom: 20px;">
+                        <h3 style="color: #d29922; margin-bottom: 15px;">Step 3: AI Analyzes What You're Looking At</h3>
+
+                        <div class="ai-panel">
+                            <h4 style="margin-bottom: 15px;">🤖 AI Pattern Analysis</h4>
+
+                            <div class="code-block">
+<span class="info">📍 Location Captured:</span>
+Date/Time: Nov 13, 2025 10:15 AM
+Price: $273.05
+Bar Type: 5-minute
+
+<span class="info">📊 VWAP Configuration:</span>
+├── Yearly VWAP (2025): $270.15 → Distance: +1.07% (+0.140σ)
+├── Quarterly VWAP (Q4): $272.85 → Distance: +0.07% (+0.045σ) <span class="success">← AT VWAP!</span>
+├── Prior Q3 VWAP: $280.50 → Distance: -2.65%
+├── Daily VWAP: $273.10 → Distance: -0.02% (-0.012σ) <span class="success">← ALSO AT VWAP!</span>
+├── Yesterday's Daily VWAP: $274.20 → Distance: -0.42%
+└── Premarket 61.8% Fib: $273.00 → Distance: +0.02%
+
+<span class="warning">🎯 CONFLUENCE DETECTED:</span>
+<strong>Triple VWAP Confluence Zone</strong>
+├── Q4 2025 quarterly VWAP: $272.85
+├── Today's daily VWAP: $273.10
+├── Premarket 61.8% Fib: $273.00
+└── Range: $0.25 (0.09% spread) <span class="success">← TIGHT!</span>
+
+<span class="info">📈 Context:</span>
+├── Volume: 2.3x above 20-bar average
+├── Time: First hour (high volatility period)
+├── Prior bar: Wick rejection at +0.27σ
+└── Market: Trending (above all major VWAPs)
+                            </div>
+
+                            <p style="margin-top: 20px; padding: 15px; background: #0d1117; border-radius: 6px;">
+                                <strong style="color: #d29922;">AI Identified Pattern:</strong><br>
+                                "Triple VWAP confluence (quarterly + daily + Fib 61.8%) with volume confirmation in first hour after rejection from +0.27σ"
+                            </p>
+                        </div>
+                    </div>
+
+                    <div style="background: #21262d; padding: 25px; border-radius: 8px; margin-bottom: 20px;">
+                        <h3 style="color: #d29922; margin-bottom: 15px;">Step 4: AI Searches Historical Data</h3>
+
+                        <div style="background: #0d1117; padding: 20px; border-radius: 6px;">
+                            <p style="margin-bottom: 15px;">
+                                <span class="info">🔍 Searching...</span> 10,247 stocks × 2 years of data
+                            </p>
+                            <div style="background: #161b22; padding: 15px; border-radius: 4px; margin: 10px 0;">
+                                <p style="font-family: monospace;">Scanning AAPL... 3 matches found</p>
+                                <p style="font-family: monospace;">Scanning TSLA... 1 match found</p>
+                                <p style="font-family: monospace;">Scanning NVDA... 5 matches found</p>
+                                <p style="font-family: monospace; color: #8b949e;">...</p>
+                                <p style="font-family: monospace; margin-top: 10px; color: #238636;">✓ Complete: 47 similar patterns found</p>
+                            </div>
+
+                            <h4 style="margin: 25px 0 15px; color: #238636;">📊 Statistical Results:</h4>
+
+                            <div class="stat-result">
+                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 20px; margin-bottom: 20px;">
+                                    <div style="text-align: center;">
+                                        <div style="font-size: 3rem; color: #238636; font-weight: 700;">89%</div>
+                                        <div style="color: #8b949e;">Win Rate</div>
+                                    </div>
+                                    <div style="text-align: center;">
+                                        <div style="font-size: 3rem; color: #1f6feb; font-weight: 700;">47</div>
+                                        <div style="color: #8b949e;">Instances</div>
+                                    </div>
+                                    <div style="text-align: center;">
+                                        <div style="font-size: 3rem; color: #d29922; font-weight: 700;">+5.2%</div>
+                                        <div style="color: #8b949e;">Avg Move</div>
+                                    </div>
+                                    <div style="text-align: center;">
+                                        <div style="font-size: 3rem; color: #8957e5; font-weight: 700;">6.8</div>
+                                        <div style="color: #8b949e;">Avg Days</div>
+                                    </div>
+                                </div>
+
+                                <div style="background: #0d1117; padding: 15px; border-radius: 6px;">
+                                    <p><strong>Breakdown:</strong></p>
+                                    <p style="margin-top: 10px;">• Wins: 42 (avg +5.8%, 6.2 days)</p>
+                                    <p>• Losses: 5 (avg -2.1%, 4.5 days)</p>
+                                    <p>• R/R Ratio: 2.76:1</p>
+                                    <p style="margin-top: 15px;"><strong>Best Sectors:</strong> Tech (15/16), Agriculture (9/9), Financials (12/14)</p>
+                                    <p><strong>Best Market Regime:</strong> Trending (37/39 vs 5/8 in ranging)</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="background: #21262d; padding: 25px; border-radius: 8px;">
+                        <h3 style="color: #d29922; margin-bottom: 15px;">Step 5: You Make Decision</h3>
+
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                            <div style="background: #238636; padding: 20px; border-radius: 8px; color: white;">
+                                <h4 style="margin-bottom: 10px;">✅ Save to Pattern Library</h4>
+                                <p style="font-size: 0.95rem;">89% win rate is validated!</p>
+                                <p style="margin-top: 10px; font-size: 0.9rem; opacity: 0.9;">
+                                    Pattern will be scanned automatically<br>
+                                    Future instances = email alerts<br>
+                                    Added to your edge library
+                                </p>
+                            </div>
+
+                            <div style="background: #da3633; padding: 20px; border-radius: 8px; color: white;">
+                                <h4 style="margin-bottom: 10px;">❌ Discard Pattern</h4>
+                                <p style="font-size: 0.95rem;">If win rate was <70%</p>
+                                <p style="margin-top: 10px; font-size: 0.9rem; opacity: 0.9;">
+                                    Pattern doesn't work<br>
+                                    Not added to scanner<br>
+                                    Learning what NOT to trade
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab 2: Chart Interface -->
+        <div class="tab-content">
+            <div class="card">
+                <h2>Chart Interface with Discovery Tools</h2>
+
+                <div class="mockup">
+                    <div style="background: #161b22; padding: 15px; border-radius: 6px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <input type="text" placeholder="Enter ticker..." style="padding: 10px; background: #0d1117; border: 1px solid #30363d; border-radius: 4px; color: #c9d1d9; width: 200px; margin-right: 10px;">
+                            <button class="secondary">Load Chart</button>
+                        </div>
+                        <div>
+                            <button class="secondary" style="margin-right: 10px;">Toggle All VWAPs</button>
+                            <button>Mark Pattern</button>
+                        </div>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 250px 1fr; gap: 20px;">
+                        <!-- Sidebar -->
+                        <div style="background: #161b22; padding: 20px; border-radius: 8px;">
+                            <h4 style="margin-bottom: 15px; color: #d29922;">VWAP Layers</h4>
+
+                            <div style="margin-bottom: 20px;">
+                                <label style="display: flex; align-items: center; margin: 10px 0; cursor: pointer;">
+                                    <input type="checkbox" checked style="margin-right: 10px;">
+                                    <span>2025 Yearly VWAP</span>
+                                </label>
+                                <label style="display: flex; align-items: center; margin: 10px 0; cursor: pointer;">
+                                    <input type="checkbox" checked style="margin-right: 10px;">
+                                    <span>Q4 2025 VWAP</span>
+                                </label>
+                                <label style="display: flex; align-items: center; margin: 10px 0; cursor: pointer;">
+                                    <input type="checkbox" checked style="margin-right: 10px;">
+                                    <span>Daily VWAP</span>
+                                </label>
+                            </div>
+
+                            <h4 style="margin: 20px 0 15px; color: #d29922;">Prior Periods</h4>
+                            <label style="display: flex; align-items: center; margin: 10px 0; cursor: pointer;">
+                                <input type="checkbox" checked style="margin-right: 10px;">
+                                <span>Prior Quarterlies (4)</span>
+                            </label>
+                            <label style="display: flex; align-items: center; margin: 10px 0; cursor: pointer;">
+                                <input type="checkbox" checked style="margin-right: 10px;">
+                                <span>Prior Dailies (5 days)</span>
+                            </label>
+                            <label style="display: flex; align-items: center; margin: 10px 0; cursor: pointer;">
+                                <input type="checkbox" style="margin-right: 10px;">
+                                <span>Prior Yearlies</span>
+                            </label>
+
+                            <h4 style="margin: 20px 0 15px; color: #d29922;">Sigma Bands</h4>
+                            <label style="display: flex; align-items: center; margin: 10px 0; cursor: pointer;">
+                                <input type="checkbox" checked style="margin-right: 10px;">
+                                <span>±0.27σ</span>
+                            </label>
+                            <label style="display: flex; align-items: center; margin: 10px 0; cursor: pointer;">
+                                <input type="checkbox" checked style="margin-right: 10px;">
+                                <span>±1.0σ</span>
+                            </label>
+                            <label style="display: flex; align-items: center; margin: 10px 0; cursor: pointer;">
+                                <input type="checkbox" checked style="margin-right: 10px;">
+                                <span>±2.0σ, ±2.27σ, ±2.618σ</span>
+                            </label>
+
+                            <h4 style="margin: 20px 0 15px; color: #d29922;">Overlays</h4>
+                            <label style="display: flex; align-items: center; margin: 10px 0; cursor: pointer;">
+                                <input type="checkbox" style="margin-right: 10px;">
+                                <span>Premarket Fib Grid</span>
+                            </label>
+                            <label style="display: flex; align-items: center; margin: 10px 0; cursor: pointer;">
+                                <input type="checkbox" style="margin-right: 10px;">
+                                <span>Volume Profile</span>
+                            </label>
+                        </div>
+
+                        <!-- Chart Area -->
+                        <div style="background: #000; border-radius: 8px; padding: 20px; position: relative; min-height: 500px;">
+                            <div style="position: absolute; top: 20px; left: 20px; background: rgba(22, 27, 34, 0.9); padding: 15px; border-radius: 6px;">
+                                <p style="font-size: 0.9rem; color: #238636;">✓ All VWAPs loaded</p>
+                                <p style="font-size: 0.9rem;">Current: $273.05</p>
+                                <p style="font-size: 0.9rem;">Yearly: +0.140σ | Quarterly: +0.045σ</p>
+                            </div>
+
+                            <div style="position: absolute; bottom: 20px; right: 20px;">
+                                <button>📍 Mark This Pattern</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab 3: AI Analysis -->
+        <div class="tab-content">
+            <div class="card">
+                <h2>AI Pattern Analysis Engine</h2>
+
+                <p style="font-size: 1.1rem; margin: 20px 0;">
+                    The hardest part: AI must understand WHAT you're looking at and find similar patterns.
+                </p>
+
+                <h3 style="margin: 30px 0 15px;">Pattern Capture System:</h3>
+
+                <div class="code-block">
+<span class="info">When you mark a chart location, AI captures:</span>
+
+<strong>Price & Time Context:</strong>
+├── Exact price: $273.05
+├── Date/time: 2025-11-13 10:15:00
+├── Bar type: 5-minute candle
+├── Price action: Wick rejection / bounce / breakout / etc
+└── Open/High/Low/Close of marked bar
+
+<strong>VWAP Configuration (The Key):</strong>
+├── Yearly VWAP sigma distance: +0.140σ
+├── Quarterly VWAP sigma distance: +0.045σ
+├── Daily VWAP sigma distance: -0.012σ
+├── Distance to each prior VWAP (percent)
+├── Which bands are nearby (within 1%)
+└── Confluence count (how many levels within 0.5%)
+
+<strong>Market Context:</strong>
+├── Volume vs average: 2.3x
+├── Volatility (ATR): Current vs 20-day avg
+├── Trend direction: Above/below major VWAPs
+├── Time of day: First hour / midday / close
+└── Market regime: Trending / ranging / volatile
+
+<strong>Pattern Type (Auto-detected):</strong>
+├── Bounce (low formed, price reversed)
+├── Rejection (wick through level, closed inside)
+├── Breakout (closed beyond level)
+├── Touch (price at level, no clear direction yet)
+└── Consolidation (multiple bars at level)
+                </div>
+
+                <h3 style="margin: 30px 0 15px;">Similarity Matching Algorithm:</h3>
+
+                <div style="background: #21262d; padding: 20px; border-radius: 8px;">
+                    <p style="margin-bottom: 15px;"><strong>AI searches for patterns where:</strong></p>
+
+                    <table>
+                        <tr>
+                            <th>Factor</th>
+                            <th>Tolerance</th>
+                            <th>Weight</th>
+                        </tr>
+                        <tr>
+                            <td>Yearly sigma distance</td>
+                            <td>±0.1σ</td>
+                            <td>30%</td>
+                        </tr>
+                        <tr>
+                            <td>Quarterly sigma distance</td>
+                            <td>±0.15σ</td>
+                            <td>25%</td>
+                        </tr>
+                        <tr>
+                            <td>Confluence count</td>
+                            <td>Exact match</td>
+                            <td>20%</td>
+                        </tr>
+                        <tr>
+                            <td>Volume context</td>
+                            <td>±50% of volume ratio</td>
+                            <td>10%</td>
+                        </tr>
+                        <tr>
+                            <td>Price action type</td>
+                            <td>Exact match</td>
+                            <td>10%</td>
+                        </tr>
+                        <tr>
+                            <td>Time of day</td>
+                            <td>Same session period</td>
+                            <td>5%</td>
+                        </tr>
+                    </table>
+
+                    <p style="margin-top: 15px; padding: 15px; background: #0d1117; border-radius: 6px;">
+                        <strong>Similarity Score ≥ 85% = MATCH</strong><br>
+                        Lower tolerance = fewer matches but higher precision<br>
+                        Higher tolerance = more matches but may include false positives
+                    </p>
+                </div>
+
+                <h3 style="margin: 30px 0 15px;">Results Presentation:</h3>
+
+                <div class="stat-result">
+                    <h4 style="margin-bottom: 15px;">Pattern: "Triple VWAP Confluence + Volume"</h4>
+
+                    <div class="code-block">
+<span class="success">✅ PATTERN VALIDATED</span>
+
+Found: 47 similar instances (2023-2025)
+Win Rate: 89% (42 wins, 5 losses)
+Avg Profit: +5.2% in 6.8 days
+Avg Loss: -2.1% in 4.2 days
+R/R Ratio: 2.47:1
+Sharpe: 2.1
+
+<strong>By Sector:</strong>
+├── Tech: 16/17 (94.1%) <span class="success">← STRONGEST</span>
+├── Agriculture: 9/9 (100%)
+├── Financials: 12/14 (85.7%)
+└── Consumer: 5/7 (71.4%)
+
+<strong>By Market Regime:</strong>
+├── Trending: 37/39 (94.9%) <span class="success">← WORKS BEST</span>
+└── Ranging: 5/8 (62.5%)
+
+<strong>Best Time of Day:</strong>
+└── First hour (9:30-10:30): 24/25 (96%)
+
+<strong>Volume Requirement:</strong>
+└── >2x avg volume: 38/40 (95%)
+└── <2x avg volume: 4/7 (57%)
+                    </div>
+
+                    <div style="margin-top: 20px; padding: 20px; background: #0d1117; border-radius: 6px; border-left: 4px solid #238636;">
+                        <h4 style="color: #238636; margin-bottom: 10px;">💡 AI Recommendation:</h4>
+                        <p><strong>This is a HIGH-PROBABILITY setup</strong></p>
+                        <p style="margin-top: 10px;">
+                            Trade this pattern when:<br>
+                            ✓ In trending market (above quarterly VWAP)<br>
+                            ✓ Volume >2x average<br>
+                            ✓ First hour of trading<br>
+                            ✓ In tech or agriculture sectors
+                        </p>
+                        <p style="margin-top: 15px;">
+                            <strong>Entry:</strong> At confluence zone<br>
+                            <strong>Target:</strong> +5.2% (avg winner)<br>
+                            <strong>Stop:</strong> -2.5% (beyond avg loser)<br>
+                            <strong>Expected hold:</strong> 6-7 days
+                        </p>
+                    </div>
+
+                    <div style="margin-top: 20px; text-align: center;">
+                        <button style="margin-right: 10px;">💾 Save to Pattern Library</button>
+                        <button class="secondary">📊 View All 47 Instances</button>
+                        <button class="secondary">🔍 Add to Scanner</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab 4: Pattern Library -->
+        <div class="tab-content">
+            <div class="card">
+                <h2>Your Pattern Library (Grows Over Time)</h2>
+
+                <p style="font-size: 1.1rem; margin-bottom: 20px;">
+                    Every pattern you discover and validate gets added here. Scanner finds these automatically.
+                </p>
+
+                <div style="background: #21262d; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                    <h3 style="margin-bottom: 15px;">Validated Patterns (3)</h3>
+
+                    <div style="background: #0d1117; padding: 20px; border-radius: 6px; margin-bottom: 15px; border-left: 4px solid #238636;">
+                        <div style="display: flex; justify-content: space-between; align-items: start;">
+                            <div>
+                                <h4 style="color: #238636;">-0.27σ Yearly VWAP Support</h4>
+                                <p style="margin: 10px 0; color: #8b949e;">Discovered: Nov 13, 2025 (DIS analysis)</p>
+                                <p><strong>Win Rate:</strong> 100% (967/967)</p>
+                                <p><strong>Avg Move:</strong> +7.82% in 10.6 days</p>
+                                <p><strong>Best Sectors:</strong> All (universal pattern)</p>
+                            </div>
+                            <div style="text-align: right;">
+                                <div style="font-size: 2rem; color: #238636; font-weight: 700;">100%</div>
+                                <div style="color: #8b949e;">Active</div>
+                            </div>
+                        </div>
+                        <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #30363d;">
+                            <p style="font-size: 0.9rem;"><strong>Scanner Status:</strong> <span class="success">Active (checking 10k tickers daily)</span></p>
+                            <p style="font-size: 0.9rem; margin-top: 5px;"><strong>Last Signal:</strong> DIS @ $105.85 (Today, 8:45 AM)</p>
+                        </div>
+                    </div>
+
+                    <div style="background: #0d1117; padding: 20px; border-radius: 6px; margin-bottom: 15px; border-left: 4px solid #238636;">
+                        <div style="display: flex; justify-content: space-between; align-items: start;">
+                            <div>
+                                <h4 style="color: #238636;">Triple VWAP Confluence + Volume</h4>
+                                <p style="margin: 10px 0; color: #8b949e;">Discovered: Nov 13, 2025 (AAPL pattern)</p>
+                                <p><strong>Win Rate:</strong> 89% (42/47)</p>
+                                <p><strong>Avg Move:</strong> +5.2% in 6.8 days</p>
+                                <p><strong>Best Sectors:</strong> Tech (94%), Agriculture (100%)</p>
+                            </div>
+                            <div style="text-align: right;">
+                                <div style="font-size: 2rem; color: #238636; font-weight: 700;">89%</div>
+                                <div style="color: #8b949e;">Active</div>
+                            </div>
+                        </div>
+                        <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #30363d;">
+                            <p style="font-size: 0.9rem;"><strong>Scanner Status:</strong> <span class="success">Active</span></p>
+                            <p style="font-size: 0.9rem; margin-top: 5px;"><strong>Filters:</strong> Volume >2x, trending market, first hour only</p>
+                        </div>
+                    </div>
+
+                    <div style="background: #0d1117; padding: 20px; border-radius: 6px; border-left: 4px solid #d29922;">
+                        <div style="display: flex; justify-content: space-between; align-items: start;">
+                            <div>
+                                <h4 style="color: #d29922;">+2.27σ / +2.618σ Swing Tops</h4>
+                                <p style="margin: 10px 0; color: #8b949e;">Discovered: Nov 13, 2025 (DELL highs)</p>
+                                <p><strong>Win Rate:</strong> Testing... (4/4 so far)</p>
+                                <p><strong>Avg Reversal:</strong> -6.2% in 8.1 days</p>
+                                <p><strong>Best Use:</strong> Fade/profit-taking signals</p>
+                            </div>
+                            <div style="text-align: right;">
+                                <div style="font-size: 2rem; color: #d29922; font-weight: 700;">⏳</div>
+                                <div style="color: #8b949e;">Testing</div>
+                            </div>
+                        </div>
+                        <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #30363d;">
+                            <p style="font-size: 0.9rem;"><strong>Status:</strong> <span class="warning">Need 100+ instances for validation</span></p>
+                            <p style="font-size: 0.9rem; margin-top: 5px;"><strong>Scanner:</strong> Paused until validated</p>
+                        </div>
+                    </div>
+                </div>
+
+                <h3 style="margin: 30px 0 15px;">Discarded Patterns (Learning)</h3>
+
+                <div style="background: #21262d; padding: 20px; border-radius: 8px;">
+                    <div style="background: #0d1117; padding: 20px; border-radius: 6px; border-left: 4px solid #da3633;">
+                        <h4 style="color: #da3633;">Prior Quarterly Touch (Standalone)</h4>
+                        <p style="margin: 10px 0;">Tested: 1,358 instances</p>
+                        <p><strong>Win Rate:</strong> 47.9% (coin flip)</p>
+                        <p style="margin-top: 10px; color: #8b949e;">
+                            ❌ Not added to scanner - doesn't work reliably without additional filters
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab 5: Scanner Integration -->
+        <div class="tab-content">
+            <div class="card">
+                <h2>How Discovery Feeds the Scanner</h2>
+
+                <div style="background: #21262d; padding: 25px; border-radius: 8px; margin: 20px 0;">
+                    <h3 style="margin-bottom: 20px;">The Flywheel:</h3>
+
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 30px; margin: 20px 0;">
+                        <div style="text-align: center;">
+                            <div style="width: 80px; height: 80px; background: #d29922; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 15px; font-size: 2rem;">👁️</div>
+                            <h4>You Discover</h4>
+                            <p style="color: #8b949e; margin-top: 10px;">Spot patterns on charts using your 3 years of experience</p>
+                        </div>
+
+                        <div style="text-align: center;">
+                            <div style="width: 80px; height: 80px; background: #1f6feb; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 15px; font-size: 2rem;">🤖</div>
+                            <h4>AI Quantifies</h4>
+                            <p style="color: #8b949e; margin-top: 10px;">Captures exact VWAP config, finds historical instances</p>
+                        </div>
+
+                        <div style="text-align: center;">
+                            <div style="width: 80px; height: 80px; background: #238636; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 15px; font-size: 2rem;">✅</div>
+                            <h4>AI Validates</h4>
+                            <p style="color: #8b949e; margin-top: 10px;">89% win rate = validated, added to library</p>
+                        </div>
+
+                        <div style="text-align: center;">
+                            <div style="width: 80px; height: 80px; background: #8957e5; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 15px; font-size: 2rem;">🔍</div>
+                            <h4>Scanner Finds</h4>
+                            <p style="color: #8b949e; margin-top: 10px;">Automatically scans 10k tickers for YOUR patterns</p>
+                        </div>
+
+                        <div style="text-align: center;">
+                            <div style="width: 80px; height: 80px; background: #d29922; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 15px; font-size: 2rem;">📧</div>
+                            <h4>You Trade</h4>
+                            <p style="color: #8b949e; margin-top: 10px;">Wake up to validated setups in your inbox</p>
+                        </div>
+
+                        <div style="text-align: center;">
+                            <div style="width: 80px; height: 80px; background: #1f6feb; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 15px; font-size: 2rem;">📈</div>
+                            <h4>Refine Edge</h4>
+                            <p style="color: #8b949e; margin-top: 10px;">Track outcomes, discover new patterns, repeat</p>
+                        </div>
+                    </div>
+                </div>
+
+                <h3 style="margin: 30px 0 15px;">Example: From Discovery to Automation</h3>
+
+                <div class="code-block">
+<strong>Day 1 - You Discover:</strong>
+10:15 AM - Watching AAPL
+└── "Hmm, bouncing here at this confluence"
+    └── Click/mark the spot
+        └── AI: "Triple VWAP confluence, found 47 similar, 89% win rate"
+            └── You: "💾 Save to library"
+
+<strong>Day 2 - Scanner Activates:</strong>
+6:00 AM - Scanner runs automatically
+└── Checks 10,247 tickers for "Triple VWAP confluence"
+    └── Found: NVDA, TSLA, CORN (3 matches)
+        └── Email sent: "3 setups matching your 89% pattern"
+
+<strong>Day 3 - You Trade:</strong>
+6:15 AM - Check email
+└── CORN @ $4.23 (Score: 97/100)
+    └── Your pattern from Day 1!
+        └── Enter trade with 89% confidence
+
+<strong>Day 7 - Outcome:</strong>
+CORN hit target (+5.4% in 6 days)
+└── Pattern confirmed again
+    └── Scanner keeps finding more
+        └── Your edge compounds
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function showTab(index) {
+            const tabs = document.querySelectorAll('.tab');
+            const contents = document.querySelectorAll('.tab-content');
+
+            tabs.forEach(t => t.classList.remove('active'));
+            contents.forEach(c => c.classList.remove('active'));
+
+            tabs[index].classList.add('active');
+            contents[index].classList.add('active');
+        }
+    </script>
+</body>
+</html>
